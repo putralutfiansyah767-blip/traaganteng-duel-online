@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arena Duel Online — Neon Edition</title>
+  
+  <!-- PeerJS untuk koneksi P2P Online Jarak Jauh Tanpa Server -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Chess.js untuk validasi aturan Catur resmi -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #070b14;
+      --bg-card: #0d1322;
+      --bg-input: #060911;
+      --neon-cyan: #00f3ff;
+      --neon-pink: #ff007f;
+      --neon-purple: #a855f7;
+      --neon-green: #00ff9d;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #131c36 0%, #050811 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+        .container {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(13, 19, 34, 0.92);
+      backdrop-filter: blur(14px);
+      border: 1.5px solid rgba(0, 243, 255, 0.35);
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: 0 0 30px rgba(0, 243, 255, 0.15), inset 0 0 20px rgba(168, 85, 247, 0.08);
+      position: relative;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 1.7rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(0, 243, 255, 0.35);
+      letter-spacing: 1px;
+    }
+
+    .header p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeIn 0.3s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--neon-cyan);
+      margin-bottom: 6px;
+      text-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1.5px solid rgba(0, 243, 255, 0.25);
+      background: var(--bg-input);
+      color: var(--text-main);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 14px rgba(0, 243, 255, 0.3);
+    }
+
+    .game-select {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .game-card {
+      background: var(--bg-input);
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .game-card:hover { border-color: rgba(0, 243, 255, 0.5); }
+    .game-card.selected {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 243, 255, 0.08);
+      box-shadow: 0 0 18px rgba(0, 243, 255, 0.25);
+    }
+    .game-card .icon { font-size: 1.85rem; margin-bottom: 6px; }
+    .game-card .title { font-weight: 700; font-size: 0.95rem; }
+
+    .btn {
+      width: 100%;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--neon-cyan), #3b82f6);
+      color: #050811;
+      box-shadow: 0 0 18px rgba(0, 243, 255, 0.4);
+    }
+    .btn-secondary {
+      background: rgba(168, 85, 247, 0.15);
+      color: #e9d5ff;
+      border: 1.5px solid rgba(168, 85, 247, 0.5);
+    }
+    .btn-danger {
+      background: rgba(255, 0, 127, 0.15);
+      color: #ff80bf;
+      border: 1.5px solid rgba(255, 0, 127, 0.5);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      margin: 16px 0;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+    }
+    .divider span { padding: 0 12px; }
+        .room-box {
+      background: var(--bg-input);
+      border: 1.5px dashed var(--neon-cyan);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .room-code {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: 5px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+      margin: 8px 0;
+    }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+
+    .game-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-input);
+      border: 1px solid rgba(0, 243, 255, 0.2);
+      padding: 10px 14px;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+    .player-badge { display: flex; flex-direction: column; max-width: 40%; }
+    .player-badge span:first-child { font-size: 0.72rem; color: var(--text-muted); }
+    .name-edit-row { display: flex; align-items: center; gap: 5px; }
+    .player-name-text { font-weight: 700; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .edit-name-btn {
+      background: rgba(0, 243, 255, 0.12);
+      border: 1px solid rgba(0, 243, 255, 0.45);
+      color: var(--neon-cyan);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .status-banner {
+      text-align: center;
+      padding: 9px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      margin-bottom: 14px;
+      background: rgba(0, 243, 255, 0.1);
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      color: var(--neon-cyan);
+    }
+    .status-banner.win { background: rgba(0, 255, 157, 0.15); border-color: var(--neon-green); color: var(--neon-green); }
+    .status-banner.lose { background: rgba(255, 0, 127, 0.15); border-color: var(--neon-pink); color: #ff66b3; }
+
+    .ttt-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 290px; margin: 0 auto 14px; }
+    .ttt-cell {
+      aspect-ratio: 1;
+      background: var(--bg-input);
+      border: 1.5px solid rgba(0, 243, 255, 0.25);
+      border-radius: 16px;
+      font-size: 2.8rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .ttt-cell.x { color: var(--neon-cyan); text-shadow: 0 0 14px rgba(0, 243, 255, 0.8); }
+    .ttt-cell.o { color: var(--neon-pink); text-shadow: 0 0 14px rgba(255, 0, 127, 0.8); }
+    .ttt-cell.win-cell { background: rgba(0, 255, 157, 0.18); border-color: var(--neon-green); }
+
+    .chess-wrapper { width: 100%; max-width: 390px; margin: 0 auto 14px; }
+    .chess-board { display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid var(--neon-cyan); }
+    .chess-sq { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: clamp(1.4rem, 5.5vw, 2.1rem); cursor: pointer; position: relative; }
+    .chess-sq.light { background-color: #cbd5e1; }
+    .chess-sq.dark { background-color: #334155; }
+    .chess-sq.selected { background-color: #fde047 !important; }
+    .chess-sq.last-move { background-color: rgba(0, 243, 255, 0.45) !important; }
+    .chess-sq.in-check { background-color: var(--neon-pink) !important; }
+    .piece-w { color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
+    .piece-b { color: #070b14; text-shadow: 0 1px 1px rgba(255,255,255,0.45); }
+
+    .emoji-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-input); padding: 8px 12px; border-radius: 14px; margin-bottom: 10px;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+    }
+    .emoji-label-wrap { display: flex; flex-direction: column; }
+    .emoji-label-wrap span:first-child { font-size: 0.8rem; color: #e9d5ff; font-weight: 700; }
+    .emoji-cooldown-text { font-size: 0.68rem; color: var(--neon-pink); font-weight: 700; min-height: 14px; }
+    .emoji-buttons { display: flex; gap: 8px; }
+    .emoji-btn {
+      background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: 10px; font-size: 1.35rem; padding: 4px 10px; cursor: pointer;
+    }
+    .emoji-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .floating-emoji-layer { position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: hidden; }
+    .floating-emoji-item { position: absolute; bottom: 15%; display: flex; flex-direction: column; align-items: center; animation: floatUpEmoji 2.3s forwards; }
+    .floating-emoji-item .big-emoji { font-size: 3.5rem; filter: drop-shadow(0 0 14px rgba(0, 243, 255, 0.6)); }
+    .floating-emoji-item .sender-tag {
+      background: rgba(7, 11, 20, 0.92); color: var(--neon-cyan); font-size: 0.72rem; font-weight: 800;
+      padding: 2px 10px; border-radius: 99px; border: 1px solid var(--neon-cyan); margin-top: 2px;
+    }
+    @keyframes floatUpEmoji {
+      0% { opacity: 0; transform: translateY(20px) scale(0.5); }
+      15% { opacity: 1; transform: translateY(0) scale(1.15); }
+      75% { opacity: 1; transform: translateY(-160px) scale(1); }
+      100% { opacity: 0; transform: translateY(-230px) scale(0.9); }
+    }
+
+    .chat-box { background: var(--bg-input); border: 1px solid rgba(0, 243, 255, 0.25); border-radius: 14px; padding: 10px; margin-bottom: 12px; }
+    .chat-messages { height: 110px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; margin-bottom: 8px; }
+    .chat-msg { font-size: 0.82rem; padding: 6px 10px; border-radius: 10px; max-width: 85%; word-wrap: break-word; }
+    .chat-msg.me { align-self: flex-end; background: rgba(0, 243, 255, 0.14); border: 1px solid rgba(0, 243, 255, 0.4); color: #f8fafc; }
+    .chat-msg.opp { align-self: flex-start; background: rgba(255, 0, 127, 0.14); border: 1px solid rgba(255, 0, 127, 0.4); color: #f8fafc; }
+    .chat-msg.sys { align-self: center; background: transparent; color: var(--text-muted); font-size: 0.74rem; font-style: italic; }
+    .chat-sender { font-size: 0.68rem; font-weight: 800; color: var(--neon-cyan); display: block; margin-bottom: 2px; }
+    .chat-msg.opp .chat-sender { color: #ff66b3; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input-row input { padding: 8px 12px; font-size: 0.85rem; border-radius: 10px; }
+    .chat-send-btn { background: linear-gradient(135deg, var(--neon-cyan), #3b82f6); color: #050811; border: none; border-radius: 10px; padding: 0 14px; font-weight: 800; cursor: pointer; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(5, 8, 17, 0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+    .modal-overlay.active { display: flex; }
+    .neon-modal-card {
+      background: linear-gradient(160deg, #0f172a 0%, #070b14 100%);
+      padding: 26px 22px; border-radius: 22px; text-align: center;
+      border: 2px solid var(--neon-pink); box-shadow: 0 0 30px rgba(255, 0, 127, 0.45);
+      width: 100%; max-width: 350px;
+    }
+    .neon-modal-card.cyan-theme { border-color: var(--neon-cyan); box-shadow: 0 0 30px rgba(0, 243, 255, 0.4); }
+    .neon-modal-icon { font-size: 2.6rem; margin-bottom: 10px; }
+    .neon-modal-message { font-size: 1.08rem; font-weight: 800; color: #ffffff; margin-bottom: 20px; }
+    .promo-options { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
+    .promo-btn { font-size: 2rem; padding: 10px 14px; border-radius: 12px; background: var(--bg-input); border: 1.5px solid rgba(0, 243, 255, 0.4); cursor: pointer; }
+    .toast { position: fixed; bottom: 20px; background: #070b14; color: var(--neon-green); border: 1.5px solid var(--neon-green); padding: 10px 20px; border-radius: 99px; font-size: 0.85rem; font-weight: 700; opacity: 0; transition: opacity 0.3s; z-index: 250; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="floating-emoji-layer" id="floating-emoji-layer"></div>
+
+  <div class="container">
+    <div class="header">
+      <h1>DUEL ONLINE</h1>
+      <p>jangan lupa follow tt 1nonly traa</p>
+    </div>
+
+    <!-- SCREEN 1: MENU UTAMA -->
+    <div id="screen-menu" class="screen active">
+      <div class="form-group">
+        <label>Ketik untuk mengubah namamu</label>
+        <input type="text" id="player-name" placeholder="Ketik nama kamu di sini..." maxlength="16" />
+      </div>
+
+      <label>Pilih Permainan (Untuk Buat Room)</label>
+      <div class="game-select">
+        <div class="game-card selected" data-game="ttt" onclick="selectGame('ttt')">
+          <div class="icon">⭕❌</div>
+          <div class="title">Tic-Tac-Toe</div>
+        </div>
+        <div class="game-card" data-game="chess" onclick="selectGame('chess')">
+          <div class="icon">♞♚</div>
+          <div class="title">Catur Online</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="createRoom()">+ Buat Room Baru</button>
+
+      <div class="divider"><span>ATAU GABUNG ROOM TEMAN</span></div>
+
+      <div class="form-group">
+        <input type="text" id="join-code-input" placeholder="Masukkan Kode Room (Contoh: AB12C)" style="text-transform: uppercase; text-align: center; font-weight: 700; letter-spacing: 2px;" maxlength="6" />
+      </div>
+      <button class="btn btn-secondary" onclick="joinRoom()">Gabung ke Room</button>
+    </div>
+
+    <!-- SCREEN 2: LOBBY MENUNGGU TEMAN -->
+    <div id="screen-lobby" class="screen">
+      <div class="room-box">
+        <div style="font-size: 0.85rem; color: var(--text-muted);">Bagikan Kode Room ini ke temanmu:</div>
+        <div class="room-code" id="display-room-code">-----</div>
+        <div style="font-size: 0.85rem; color: var(--neon-cyan);" id="lobby-game-label">Mode: Tic-Tac-Toe</div>
+        
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="copyRoomCode()">📋 Salin Kode</button>
+          <button class="btn btn-primary" onclick="copyInviteLink()">🔗 Salin Link</button>
+        </div>
+      </div>
+      <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">
+        ⏳ Menunggu teman bergabung... Jangan tutup halaman ini.
+      </p>
+      <button class="btn btn-danger" onclick="leaveGame()">Batal & Kembali</button>
+    </div>
+
+    <!-- SCREEN 3: ARENA PERMAINAN -->
+    <div id="screen-game" class="screen">
+      <div class="game-topbar">
+        <div class="player-badge">
+          <span id="my-role-label">Kamu</span>
+          <div class="name-edit-row">
+            <span class="player-name-text" id="my-name-display">-</span>
+            <button class="edit-name-btn" onclick="openRenameModal()" title="Ganti Nama">✏️ Ganti</button>
+          </div>
+        </div>
+        <div style="font-weight: 800; color: var(--neon-cyan); font-size: 1.05rem;" id="score-display">0 - 0</div>
+        <div class="player-badge" style="text-align: right; align-items: flex-end;">
+          <span id="opp-role-label">Lawan</span>
+          <span class="player-name-text" id="opp-name-display">-</span>
+        </div>
+      </div>
+
+      <div id="status-banner" class="status-banner">Menghubungkan...</div>
+
+      <!-- Area Tic-Tac-Toe -->
+      <div id="area-ttt" style="display: none;">
+        <div class="ttt-board" id="ttt-board"></div>
+      </div>
+
+      <!-- Area Catur -->
+      <div id="area-chess" style="display: none;">
+        <div class="chess-wrapper">
+          <div class="chess-board" id="chess-board"></div>
+        </div>
+      </div>
+
+      <!-- Fitur Kirim Emoji dengan Jeda (Cooldown) -->
+      <div class="emoji-bar">
+        <div class="emoji-label-wrap">
+          <span>Kirim Emoji:</span>
+          <span class="emoji-cooldown-text" id="emoji-cooldown-text"></span>
+        </div>
+        <div class="emoji-buttons">
+          <button class="emoji-btn" onclick="sendEmoji('😹')">😹</button>
+          <button class="emoji-btn" onclick="sendEmoji('😝')">😝</button>
+          <button class="emoji-btn" onclick="sendEmoji('👻')">👻</button>
+          <button class="emoji-btn" onclick="sendEmoji('👑')">👑</button>
+        </div>
+      </div>
+
+      <!-- Fitur Live Chat -->
+      <div class="chat-box">
+        <div class="chat-messages" id="chat-messages"></div>
+        <form class="chat-input-row" onsubmit="sendChatMessage(event)">
+          <input type="text" id="chat-input" placeholder="Ketik pesan untuk teman..." maxlength="150" autocomplete="off" />
+          <button type="submit" class="chat-send-btn">Kirim</button>
+        </form>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-rematch" onclick="requestRematch()" style="display: none;">🔄 Main Lagi</button>
+        <button class="btn btn-danger" onclick="leaveGame()">🚪 Keluar</button>
+      </div>
+    </div>
+  </div>
+    <!-- CUSTOM NEON ALERT MODAL (TANPA "HALAMAN INI MENYATAKAN") -->
+  <div class="modal-overlay" id="neon-alert-modal">
+    <div class="neon-modal-card">
+      <div class="neon-modal-icon" id="neon-alert-icon">⚡</div>
+      <div class="neon-modal-message" id="neon-alert-text">LAWAN ANDA TELAH KELUAR</div>
+      <button class="btn btn-danger" onclick="closeNeonAlert()">MENGERTI</button>
+    </div>
+  </div>
+
+  <!-- Modal Promosi Pion Catur -->
+  <div class="modal-overlay" id="promo-modal">
+    <div class="neon-modal-card cyan-theme">
+      <h3 style="color: var(--neon-cyan);">Pilih Bidak Promosi</h3>
+      <div class="promo-options">
+        <button class="promo-btn" onclick="completePromotion('q')">♛</button>
+        <button class="promo-btn" onclick="completePromotion('r')">♜</button>
+        <button class="promo-btn" onclick="completePromotion('b')">♝</button>
+        <button class="promo-btn" onclick="completePromotion('n')">♞</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ganti Nama Saat Bermain -->
+  <div class="modal-overlay" id="rename-modal">
+    <div class="neon-modal-card cyan-theme">
+      <h3 style="margin-bottom: 12px; color: var(--neon-cyan);">Ganti Nama Kamu</h3>
+      <input type="text" id="rename-input" placeholder="Masukkan nama baru..." maxlength="16" style="margin-bottom: 14px;" />
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="closeRenameModal()">Batal</button>
+        <button class="btn btn-primary" onclick="saveNewName()">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Tersalin ke clipboard!</div>
+      <script>
+    const PREFIX = 'arenaduel2026-';
+    let peer = null;
+    let conn = null;
+    let isHost = false;
+    let selectedGame = 'ttt';
+    let roomCode = '';
+    let myName = '';
+    let oppName = 'Teman';
+    let myScore = 0;
+    let oppScore = 0;
+    let neonAlertCallback = null;
+
+    // Cooldown Emoji (3 Detik)
+    const EMOJI_COOLDOWN_SEC = 3;
+    let emojiOnCooldown = false;
+    let emojiCooldownTimer = null;
+
+    let tttBoard = Array(9).fill(null);
+    let tttTurn = 'X';
+    let tttGameOver = false;
+
+    let chess = new Chess();
+    let selectedSquare = null;
+    let lastMove = null;
+    let pendingPromotion = null;
+
+    const PIECE_UNICODE = {
+      wP: '♟', wR: '♜', wN: '♞', wB: '♝', wQ: '♛', wK: '♚',
+      bP: '♟', bR: '♜', bN: '♞', bB: '♝', bQ: '♛', bK: '♚'
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedName = localStorage.getItem('arena_player_name');
+      const nameInput = document.getElementById('player-name');
+      if (savedName) nameInput.value = savedName;
+
+      const params = new URLSearchParams(window.location.search);
+      const codeFromUrl = params.get('room');
+      if (codeFromUrl) document.getElementById('join-code-input').value = codeFromUrl.toUpperCase();
+    });
+
+    function showNeonAlert(message, icon = '⚠️', onClose = null) {
+      document.getElementById('neon-alert-text').textContent = message;
+      document.getElementById('neon-alert-icon').textContent = icon;
+      neonAlertCallback = onClose;
+      document.getElementById('neon-alert-modal').classList.add('active');
+    }
+
+    function closeNeonAlert() {
+      document.getElementById('neon-alert-modal').classList.remove('active');
+      if (typeof neonAlertCallback === 'function') {
+        const cb = neonAlertCallback;
+        neonAlertCallback = null;
+        cb();
+      }
+    }
+
+    function getValidPlayerName(fallback) {
+      const raw = document.getElementById('player-name').value.trim();
+      const finalName = raw || fallback;
+      localStorage.setItem('arena_player_name', finalName);
+      return finalName;
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function switchScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+    }
+
+    function selectGame(game) {
+      selectedGame = game;
+      document.querySelectorAll('.game-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.game === game);
+      });
+    }
+
+    function generateCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let res = '';
+      for (let i = 0; i < 5; i++) res += chars[Math.floor(Math.random() * chars.length)];
+      return res;
+    }
+
+    function createRoom() {
+      myName = getValidPlayerName('Player 1');
+      isHost = true;
+      roomCode = generateCode();
+
+      document.getElementById('display-room-code').textContent = roomCode;
+      document.getElementById('lobby-game-label').textContent =
+        `Mode: ${selectedGame === 'ttt' ? 'Tic-Tac-Toe Online' : 'Catur Online'}`;
+      switchScreen('screen-lobby');
+
+      // Hancurkan peer lama jika ada
+      if (peer) { peer.destroy(); }
+
+      peer = new Peer(PREFIX + roomCode);
+
+      peer.on('open', () => {
+        console.log('Host siap dengan ID:', PREFIX + roomCode);
+      });
+
+      peer.on('connection', (connection) => {
+        if (conn && conn.open) {
+          connection.close();
+          return;
+        }
+        conn = connection;
+        setupConnection();
+      });
+
+      peer.on('error', (err) => {
+        console.error(err);
+        showNeonAlert('GAGAL MEMBUAT ROOM. KODE MUNGKIN SUDAH DIPAKAI.', '⚡', () => leaveGame());
+      });
+    }
+
+    function joinRoom() {
+      const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+      if (!code || code.length < 4) {
+        showNeonAlert('MASUKKAN KODE ROOM YANG VALID!', '🔑');
+        return;
+      }
+      myName = getValidPlayerName('Player 2');
+      isHost = false;
+      roomCode = code;
+
+      if (peer) { peer.destroy(); }
+
+      peer = new Peer();
+
+      peer.on('open', () => {
+        console.log('Menghubungkan ke room:', PREFIX + roomCode);
+        conn = peer.connect(PREFIX + roomCode, { reliable: true });
+        setupConnection();
+      });
+
+      peer.on('error', (err) => {
+        console.error(err);
+        showNeonAlert('ROOM TIDAK DITEMUKAN ATAU SUDAH PENUH!', '🚫', () => leaveGame());
+      });
+    }
+
+    function setupConnection() {
+      conn.on('open', () => {
+        console.log('Koneksi P2P terbuka! Mengirim sinyal INIT...');
+        // Kirim identitas & game yang dipilih segera setelah terbuka
+        conn.send({
+          type: 'INIT',
+          name: myName,
+          game: selectedGame
+        });
+      });
+
+      conn.on('data', (data) => {
+        handleIncomingData(data);
+      });
+
+      conn.on('close', () => {
+        showNeonAlert('LAWAN ANDA TELAH KELUAR', '🚪', () => leaveGame());
+      });
+
+      conn.on('error', (err) => {
+        console.error('Koneksi Error:', err);
+      });
+    }
+
+    function handleIncomingData(data) {
+      console.log('Menerima data:', data.type);
+      if (data.type === 'INIT') {
+        oppName = data.name;
+        if (!isHost) {
+          selectedGame = data.game;
+        } else {
+          // Host membalas konfirmasi game & namanya ke Guest
+          conn.send({
+            type: 'START_GAME',
+            name: myName,
+            game: selectedGame
+          });
+        }
+        startMatch();
+      } 
+      else if (data.type === 'START_GAME') {
+        oppName = data.name;
+        selectedGame = data.game;
+        startMatch();
+      }
+      else if (data.type === 'RENAME') {
+        const oldName = oppName;
+        oppName = data.name;
+        document.getElementById('opp-name-display').textContent = oppName;
+        appendSystemMessage(`${oldName} mengganti nama menjadi ${oppName}`);
+        if (selectedGame === 'ttt') updateTttStatus();
+        else updateChessStatus();
+      }
+      else if (data.type === 'CHAT') {
+        appendChatMessage(oppName, data.text, false);
+      }
+      else if (data.type === 'EMOJI') {
+        spawnFloatingEmoji(data.emoji, oppName, false);
+      }
+      else if (data.type === 'TTT_MOVE') {
+        applyTttMove(data.index, data.symbol);
+      }
+      else if (data.type === 'CHESS_MOVE') {
+        chess.move({ from: data.from, to: data.to, promotion: data.promotion || 'q' });
+        lastMove = { from: data.from, to: data.to };
+        renderChessBoard();
+        updateChessStatus();
+      }
+      else if (data.type === 'REMATCH') {
+        resetMatch();
+        appendSystemMessage(`${oppName} memulai ronde baru!`);
+      }
+    }
+
+    function copyRoomCode() {
+      navigator.clipboard.writeText(roomCode);
+      showToast('Kode Room disalin!');
+    }
+
+    function copyInviteLink() {
+      const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+      navigator.clipboard.writeText(url);
+      showToast('Link undangan disalin!');
+    }
+
+    function leaveGame() {
+      if (conn) conn.close();
+      if (peer) peer.destroy();
+      conn = null; peer = null;
+      myScore = 0; oppScore = 0;
+      clearInterval(emojiCooldownTimer);
+      emojiOnCooldown = false;
+      window.history.replaceState({}, document.title, window.location.pathname);
+      switchScreen('screen-menu');
+    }
+
+    function openRenameModal() {
+      document.getElementById('rename-input').value = myName;
+      document.getElementById('rename-modal').classList.add('active');
+      document.getElementById('rename-input').focus();
+    }
+
+    function closeRenameModal() {
+      document.getElementById('rename-modal').classList.remove('active');
+    }
+
+    function saveNewName() {
+      const newName = document.getElementById('rename-input').value.trim();
+      if (!newName) return;
+      myName = newName;
+      localStorage.setItem('arena_player_name', myName);
+      document.getElementById('player-name').value = myName;
+      document.getElementById('my-name-display').textContent = myName;
+      closeRenameModal();
+      if (conn && conn.open) conn.send({ type: 'RENAME', name: myName });
+      appendSystemMessage(`Kamu mengganti nama menjadi ${myName}`);
+    }
+
+    function sendChatMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text || !conn) return;
+      appendChatMessage(myName, text, true);
+      conn.send({ type: 'CHAT', text });
+      input.value = '';
+    }
+
+    function appendChatMessage(sender, text, isMe) {
+      const box = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = `chat-msg ${isMe ? 'me' : 'opp'}`;
+      const senderSpan = document.createElement('span');
+      senderSpan.className = 'chat-sender';
+      senderSpan.textContent = isMe ? `${sender} (Kamu)` : sender;
+      div.appendChild(senderSpan);
+      div.appendChild(document.createTextNode(text));
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function appendSystemMessage(text) {
+      const box = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'chat-msg sys';
+      div.textContent = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function sendEmoji(emoji) {
+      if (!conn || !conn.open || emojiOnCooldown) return;
+      spawnFloatingEmoji(emoji, myName, true);
+      conn.send({ type: 'EMOJI', emoji });
+      startEmojiCooldown();
+    }
+
+    function startEmojiCooldown() {
+      emojiOnCooldown = true;
+      let remaining = EMOJI_COOLDOWN_SEC;
+      const buttons = document.querySelectorAll('.emoji-btn');
+      const statusText = document.getElementById('emoji-cooldown-text');
+      buttons.forEach(btn => btn.disabled = true);
+      statusText.textContent = `Tunggu ${remaining}d...`;
+
+      clearInterval(emojiCooldownTimer);
+      emojiCooldownTimer = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          statusText.textContent = `Tunggu ${remaining}d...`;
+        } else {
+          clearInterval(emojiCooldownTimer);
+          emojiOnCooldown = false;
+          statusText.textContent = '';
+          buttons.forEach(btn => btn.disabled = false);
+        }
+      }, 1000);
+    }
+
+    function spawnFloatingEmoji(emoji, senderName, isMe) {
+      const layer = document.getElementById('floating-emoji-layer');
+      const item = document.createElement('div');
+      item.className = 'floating-emoji-item';
+      const baseLeft = isMe ? (55 + Math.random() * 25) : (15 + Math.random() * 25);
+      item.style.left = `${baseLeft}%`;
+      item.innerHTML = `<div class="big-emoji">${emoji}</div><div class="sender-tag">${senderName}</div>`;
+      layer.appendChild(item);
+      setTimeout(() => item.remove(), 2300);
+    }
+
+    function startMatch() {
+      switchScreen('screen-game');
+      document.getElementById('my-name-display').textContent = myName;
+      document.getElementById('opp-name-display').textContent = oppName;
+      document.getElementById('chat-messages').innerHTML = '';
+      appendSystemMessage(`Terhubung dengan ${oppName}! Selamat bermain.`);
+
+      if (selectedGame === 'ttt') {
+        document.getElementById('my-role-label').textContent = isHost ? 'Kamu (X)' : 'Kamu (O)';
+        document.getElementById('opp-role-label').textContent = isHost ? 'Lawan (O)' : 'Lawan (X)';
+        document.getElementById('area-ttt').style.display = 'block';
+        document.getElementById('area-chess').style.display = 'none';
+      } else {
+        document.getElementById('my-role-label').textContent = isHost ? 'Kamu (Putih)' : 'Kamu (Hitam)';
+        document.getElementById('opp-role-label').textContent = isHost ? 'Lawan (Hitam)' : 'Lawan (Putih)';
+        document.getElementById('area-ttt').style.display = 'none';
+        document.getElementById('area-chess').style.display = 'block';
+      }
+      resetMatch();
+    }
+
+    function resetMatch() {
+      document.getElementById('btn-rematch').style.display = 'none';
+      updateScoreBoard();
+      if (selectedGame === 'ttt') {
+        tttBoard = Array(9).fill(null);
+        tttTurn = 'X';
+        tttGameOver = false;
+        renderTttBoard();
+        updateTttStatus();
+      } else {
+        chess.reset();
+        selectedSquare = null;
+        lastMove = null;
+        renderChessBoard();
+        updateChessStatus();
+      }
+    }
+
+    function requestRematch() {
+      conn.send({ type: 'REMATCH' });
+      resetMatch();
+      appendSystemMessage('Kamu memulai ronde baru.');
+    }
+
+    function updateScoreBoard() {
+      document.getElementById('score-display').textContent = `${myScore} - ${oppScore}`;
+    }
+
+    function renderTttBoard(winLine = []) {
+      const boardEl = document.getElementById('ttt-board');
+      boardEl.innerHTML = '';
+      tttBoard.forEach((val, idx) => {
+        const cell = document.createElement('div');
+        cell.className = 'ttt-cell';
+        if (val) {
+          cell.textContent = val;
+          cell.classList.add('taken', val.toLowerCase());
+        }
+        if (winLine.includes(idx)) cell.classList.add('win-cell');
+        cell.onclick = () => handleTttClick(idx);
+        boardEl.appendChild(cell);
+      });
+    }
+
+    function handleTttClick(index) {
+      const mySymbol = isHost ? 'X' : 'O';
+      if (tttGameOver || tttTurn !== mySymbol || tttBoard[index]) return;
+      applyTttMove(index, mySymbol);
+      conn.send({ type: 'TTT_MOVE', index, symbol: mySymbol });
+    }
+
+    function applyTttMove(index, symbol) {
+      tttBoard[index] = symbol;
+      const winPatterns = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      let winningLine = null;
+      for (const pattern of winPatterns) {
+        const [a, b, c] = pattern;
+        if (tttBoard[a] && tttBoard[a] === tttBoard[b] && tttBoard[a] === tttBoard[c]) {
+          winningLine = pattern; break;
+        }
+      }
+      renderTttBoard(winningLine || []);
+      const banner = document.getElementById('status-banner');
+      const mySymbol = isHost ? 'X' : 'O';
+
+      if (winningLine) {
+        tttGameOver = true;
+        if (symbol === mySymbol) {
+          myScore++;
+          banner.textContent = `🎉 Selamat ${myName}! Kamu Menang!`;
+          banner.className = 'status-banner win';
+        } else {
+          oppScore++;
+          banner.textContent = `😢 ${oppName} Menang!`;
+          banner.className = 'status-banner lose';
+        }
+        updateScoreBoard();
+        document.getElementById('btn-rematch').style.display = 'inline-flex';
+      } else if (!tttBoard.includes(null)) {
+        tttGameOver = true;
+        banner.textContent = '🤝 Permainan Seri!';
+        banner.className = 'status-banner';
+        document.getElementById('btn-rematch').style.display = 'inline-flex';
+      } else {
+        tttTurn = tttTurn === 'X' ? 'O' : 'X';
+        updateTttStatus();
+      }
+    }
+
+    function updateTttStatus() {
+      const banner = document.getElementById('status-banner');
+      banner.className = 'status-banner';
+      const mySymbol = isHost ? 'X' : 'O';
+      banner.textContent = tttTurn === mySymbol ? `Giliran Kamu (${mySymbol})` : `Menunggu giliran ${oppName} (${tttTurn})...`;
+    }
+
+    function renderChessBoard() {
+      const boardEl = document.getElementById('chess-board');
+      boardEl.innerHTML = '';
+      const boardState = chess.board();
+      const rows = isHost ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0];
+      const cols = isHost ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0];
+      const validMoves = selectedSquare ? chess.moves({ square: selectedSquare, verbose: true }) : [];
+
+      rows.forEach(r => {
+        cols.forEach(c => {
+          const sqName = String.fromCharCode(97 + c) + (8 - r);
+          const sqEl = document.createElement('div');
+          const isLight = (r + c) % 2 === 0;
+          sqEl.className = `chess-sq ${isLight ? 'light' : 'dark'}`;
+
+          if (selectedSquare === sqName) sqEl.classList.add('selected');
+          if (lastMove && (lastMove.from === sqName || lastMove.to === sqName)) sqEl.classList.add('last-move');
+
+          const piece = boardState[r][c];
+          if (piece) {
+            const pSpan = document.createElement('span');
+            pSpan.textContent = PIECE_UNICODE[piece.color + piece.type.toUpperCase()];
+            pSpan.className = piece.color === 'w' ? 'piece-w' : 'piece-b';
+            sqEl.appendChild(pSpan);
+            if (piece.type === 'k' && chess.in_check() && chess.turn() === piece.color) sqEl.classList.add('in-check');
+          }
+
+          const targetMove = validMoves.find(m => m.to === sqName);
+          if (targetMove) sqEl.classList.add(piece ? 'valid-capture' : 'valid-dot');
+
+          sqEl.onclick = () => handleChessSquareClick(sqName, piece);
+          boardEl.appendChild(sqEl);
+        });
+      });
+    }
+
+    function handleChessSquareClick(sqName, piece) {
+      const myColor = isHost ? 'w' : 'b';
+      if (chess.game_over() || chess.turn() !== myColor) return;
+
+      if (selectedSquare) {
+        const moves = chess.moves({ square: selectedSquare, verbose: true });
+        const chosenMove = moves.find(m => m.to === sqName);
+        if (chosenMove) {
+          if (chosenMove.flags.includes('p')) {
+            pendingPromotion = { from: selectedSquare, to: sqName };
+            document.getElementById('promo-modal').classList.add('active');
+            return;
+          }
+          executeChessMove(selectedSquare, sqName, 'q');
+          return;
+        }
+      }
+
+      if (piece && piece.color === myColor) {
+        selectedSquare = (selectedSquare === sqName) ? null : sqName;
+      } else {
+        selectedSquare = null;
+      }
+      renderChessBoard();
+    }
+
+    function completePromotion(promoPiece) {
+      document.getElementById('promo-modal').classList.remove('active');
+      if (pendingPromotion) {
+        executeChessMove(pendingPromotion.from, pendingPromotion.to, promoPiece);
+        pendingPromotion = null;
+      }
+    }
+
+    function executeChessMove(from, to, promotion) {
+      chess.move({ from, to, promotion });
+      lastMove = { from, to };
+      selectedSquare = null;
+      renderChessBoard();
+      updateChessStatus();
+      conn.send({ type: 'CHESS_MOVE', from, to, promotion });
+    }
+
+    function updateChessStatus() {
+      const banner = document.getElementById('status-banner');
+      const myColor = isHost ? 'w' : 'b';
+      banner.className = 'status-banner';
+
+      if (chess.in_checkmate()) {
+        const winnerIsMe = chess.turn() !== myColor;
+        if (winnerIsMe) {
+          myScore++;
+          banner.textContent = `👑 SKAKMAT! ${myName} Menang!`;
+          banner.classList.add('win');
+        } else {
+          oppScore++;
+          banner.textContent = `💀 SKAKMAT! ${oppName} Menang!`;
+          banner.classList.add('lose');
+        }
+        updateScoreBoard();
+        document.getElementById('btn-rematch').style.display = 'inline-flex';
+      } else if (chess.in_draw() || chess.in_stalemate()) {
+        banner.textContent = '🤝 Permainan Remis (Seri)!';
+        document.getElementById('btn-rematch').style.display = 'inline-flex';
+      } else {
+        const isMyTurn = chess.turn() === myColor;
+        const checkText = chess.in_check() ? ' (SKAK!)' : '';
+        banner.textContent = isMyTurn ? `Giliran Kamu melangkah${checkText}` : `Menunggu langkah ${oppName}${checkText}...`;
+      }
+    }
+  </script>
+</body>
+</html>
